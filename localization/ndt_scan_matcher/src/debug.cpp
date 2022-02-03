@@ -16,6 +16,36 @@
 
 #include "ndt_scan_matcher/util_func.hpp"
 
+// ref by http://takacity.blog.fc2.com/blog-entry-69.html
+std_msgs::msg::ColorRGBA ExchangeColorCrc(double x)
+{
+  std_msgs::msg::ColorRGBA color;
+
+  x = std::max(x, 0.0);
+  x = std::min(x, 0.9999);
+
+  if (x <= 0.25) {
+    color.b = 1.0;
+    color.g = std::sin(x * 2.0 * M_PI);
+    color.r = 0;
+  } else if (x > 0.25 && x <= 0.5) {
+    color.b = std::sin(x * 2 * M_PI);
+    color.g = 1.0;
+    color.r = 0;
+  } else if (x > 0.5 && x <= 0.75) {
+    color.b = 0;
+    color.g = 1.0;
+    color.r = -std::sin(x * 2.0 * M_PI);
+  } else {
+    color.b = 0;
+    color.g = -std::sin(x * 2.0 * M_PI);
+    color.r = 1.0;
+  }
+  color.a = 0.999;
+  return color;
+}
+
+
 visualization_msgs::msg::MarkerArray makeDebugMarkers(
   const builtin_interfaces::msg::Time & stamp, const std::string & map_frame_,
   const geometry_msgs::msg::Vector3 & scale, const Particle & particle, const size_t i)

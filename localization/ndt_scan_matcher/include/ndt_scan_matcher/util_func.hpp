@@ -17,8 +17,8 @@
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
-#include <std_msgs/msg/color_rgba.hpp>
-#include <visualization_msgs/msg/marker_array.hpp>
+#include <tier4_debug_msgs/msg/float32_stamped.hpp>
+#include <tier4_debug_msgs/msg/int32_stamped.hpp>
 
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -29,8 +29,7 @@
 #include <random>
 #include <vector>
 
-// ref by http://takacity.blog.fc2.com/blog-entry-69.html
-std_msgs::msg::ColorRGBA ExchangeColorCrc(double x);
+double norm(const geometry_msgs::msg::Point & p1, const geometry_msgs::msg::Point & p2);
 
 double calcDiffForRadian(const double lhs_rad, const double rhs_rad);
 
@@ -67,6 +66,21 @@ Eigen::Affine3d fromRosPoseToEigen(const geometry_msgs::msg::Pose & ros_pose);
 std::vector<geometry_msgs::msg::Pose> createRandomPoseArray(
   const geometry_msgs::msg::PoseWithCovarianceStamped & base_pose_with_cov,
   const size_t particle_num);
+
+bool isLocalOptimalSolutionOscillation(
+  const std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &
+    result_pose_matrix_array,
+  const float oscillation_threshold, const float inversion_vector_threshold);
+
+geometry_msgs::msg::TransformStamped identityTransformStamped(
+  const builtin_interfaces::msg::Time & timestamp, const std::string & header_frame_id,
+  const std::string & child_frame_id);
+
+tier4_debug_msgs::msg::Float32Stamped makeFloat32Stamped(
+  const builtin_interfaces::msg::Time & stamp, const float data);
+
+tier4_debug_msgs::msg::Int32Stamped makeInt32Stamped(
+  const builtin_interfaces::msg::Time & stamp, const int32_t data);
 
 template <class T>
 T transform(const T & input, const geometry_msgs::msg::TransformStamped & transform)

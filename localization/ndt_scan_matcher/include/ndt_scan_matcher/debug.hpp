@@ -17,9 +17,13 @@
 
 #include "ndt_scan_matcher/particle.hpp"
 
+#include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <string>
+
+// ref by http://takacity.blog.fc2.com/blog-entry-69.html
+std_msgs::msg::ColorRGBA ExchangeColorCrc(double x);
 
 visualization_msgs::msg::MarkerArray makeDebugMarkers(
   const builtin_interfaces::msg::Time & stamp, const std::string & map_frame_,

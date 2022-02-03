@@ -33,66 +33,6 @@
 #include <iomanip>
 #include <thread>
 
-tier4_debug_msgs::msg::Float32Stamped makeFloat32Stamped(
-  const builtin_interfaces::msg::Time & stamp, const float data)
-{
-  using T = tier4_debug_msgs::msg::Float32Stamped;
-  return tier4_debug_msgs::build<T>().stamp(stamp).data(data);
-}
-
-tier4_debug_msgs::msg::Int32Stamped makeInt32Stamped(
-  const builtin_interfaces::msg::Time & stamp, const int32_t data)
-{
-  using T = tier4_debug_msgs::msg::Int32Stamped;
-  return tier4_debug_msgs::build<T>().stamp(stamp).data(data);
-}
-
-geometry_msgs::msg::TransformStamped identityTransformStamped(
-  const builtin_interfaces::msg::Time & timestamp, const std::string & header_frame_id,
-  const std::string & child_frame_id)
-{
-  geometry_msgs::msg::TransformStamped transform;
-  transform.header.stamp = timestamp;
-  transform.header.frame_id = header_frame_id;
-  transform.child_frame_id = child_frame_id;
-  transform.transform.rotation = tier4_autoware_utils::createQuaternion(0.0, 0.0, 0.0, 1.0);
-  transform.transform.translation = tier4_autoware_utils::createTranslation(0.0, 0.0, 0.0);
-  return transform;
-}
-
-double norm(const geometry_msgs::msg::Point & p1, const geometry_msgs::msg::Point & p2)
-{
-  return std::sqrt(
-    std::pow(p1.x - p2.x, 2.0) + std::pow(p1.y - p2.y, 2.0) + std::pow(p1.z - p2.z, 2.0));
-}
-
-bool isLocalOptimalSolutionOscillation(
-  const std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> &
-    result_pose_matrix_array,
-  const float oscillation_threshold, const float inversion_vector_threshold)
-{
-  bool prev_oscillation = false;
-  int oscillation_cnt = 0;
-  for (size_t i = 2; i < result_pose_matrix_array.size(); ++i) {
-    const Eigen::Vector3f current_pose = result_pose_matrix_array.at(i).block(0, 3, 3, 1);
-    const Eigen::Vector3f prev_pose = result_pose_matrix_array.at(i - 1).block(0, 3, 3, 1);
-    const Eigen::Vector3f prev_prev_pose = result_pose_matrix_array.at(i - 2).block(0, 3, 3, 1);
-    const auto current_vec = (current_pose - prev_pose).normalized();
-    const auto prev_vec = (prev_pose - prev_prev_pose).normalized();
-    const bool oscillation = prev_vec.dot(current_vec) < inversion_vector_threshold;
-    if (prev_oscillation && oscillation) {
-      if (oscillation_cnt > oscillation_threshold) {
-        return true;
-      }
-      ++oscillation_cnt;
-    } else {
-      oscillation_cnt = 0;
-    }
-    prev_oscillation = oscillation;
-  }
-  return false;
-}
-
 NDTScanMatcher::NDTScanMatcher()
 : Node("ndt_scan_matcher"),
   tf2_buffer_(this->get_clock()),
