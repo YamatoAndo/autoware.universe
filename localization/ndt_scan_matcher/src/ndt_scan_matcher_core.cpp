@@ -523,7 +523,43 @@ void NDTScanMatcher::publish_pose(
   result_pose_with_cov_msg.header.stamp = sensor_ros_time;
   result_pose_with_cov_msg.header.frame_id = map_frame_;
   result_pose_with_cov_msg.pose.pose = result_pose_msg;
-  result_pose_with_cov_msg.pose.covariance = output_pose_covariance_;
+  // result_pose_with_cov_msg.pose.covariance = output_pose_covariance_;
+
+  // Eigen::Affine3d eigen_covariance_on_base_link = Eigen::Affine3d(
+  //   Eigen::Translation3d(output_pose_covariance_[0*6+0],
+  //                        output_pose_covariance_[1*6+1],
+  //                        output_pose_covariance_[2*6+2]) *
+  //   Eigen::Matrix3d rot = Eigen::AngleAxisd(output_pose_covariance_[3*6+3], Eigen::Vector3d::UnitX())
+  //                       * Eigen::AngleAxisd(output_pose_covariance_[4*6+4], Eigen::Vector3d::UnitY())
+  //                       * Eigen::AngleAxisd(output_pose_covariance_[5*6+5], Eigen::Vector3d::UnitZ()););
+  Eigen::VectorXf eigen_covariance_on_base_link(3);
+  eigen_covariance_on_base_link << output_pose_covariance_[0*6+0]
+                                 , output_pose_covariance_[1*6+1] 
+                                 , output_pose_covariance_[2*6+2] 
+                                 , output_pose_covariance_[3*6+3] 
+                                 , output_pose_covariance_[4*6+4] 
+                                 , output_pose_covariance_[5*6+5] 
+                                 ;
+  // Eigen::Affine3d eigen_pose_on_map = Eigen::Affine3d(
+  //   Eigen::Translation3d(0.0, 0.0, 0.0) *
+  //   Eigen::Quaterniond(
+  //     result_pose_with_cov_msg.pose.pose.orientation.w, result_pose_with_cov_msg.pose.pose.orientation.x, result_pose_with_cov_msg.pose.pose.orientation.y,
+  //     result_pose_with_cov_msg.pose.pose.orientation.z));
+
+  Eigen::Quaternionf quat = Eigen::Quaternionf(
+    result_pose_with_cov_msg.pose.pose.orientation.w, result_pose_with_cov_msg.pose.pose.orientation.x, result_pose_with_cov_msg.pose.pose.orientation.y,
+    result_pose_with_cov_msg.pose.pose.orientation.z);
+
+  Eigen::VectorXf eigen_covariance_on_map(3);
+  eigen_covariance_on_map = quat * eigen_covariance_on_base_link;
+
+  result_pose_with_cov_msg.pose.covariance[0*6+0] = std::abs(eigen_covariance_on_map(0));
+  result_pose_with_cov_msg.pose.covariance[1*6+1] = std::abs(eigen_covariance_on_map(1));
+  result_pose_with_cov_msg.pose.covariance[2*6+2] = std::abs(eigen_covariance_on_map(2));
+  result_pose_with_cov_msg.pose.covariance[3*6+3] = output_pose_covariance_[3*6+3];
+  result_pose_with_cov_msg.pose.covariance[4*6+4] = output_pose_covariance_[4*6+4];
+  result_pose_with_cov_msg.pose.covariance[5*6+5] = output_pose_covariance_[5*6+5];
+
 
   if (is_converged) {
     ndt_pose_pub_->publish(result_pose_stamped_msg);

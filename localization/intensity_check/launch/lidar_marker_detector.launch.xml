@@ -1,0 +1,7 @@
+<launch>
+  <!-- <arg name="param_file" default="$(find-pkg-share intensity_check)/config/lidar_marker_detector.param.yaml"/> -->
+
+  <node pkg="intensity_check" exec="lidar_marker_detector" name="lidar_marker_detector" output="log">
+    <!-- <param from="$(var param_file)"/> -->
+  </node>
+</launch>
