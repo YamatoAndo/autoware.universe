@@ -21,6 +21,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <autoware_point_types/types.hpp>
 #include <tier4_autoware_utils/geometry/geometry.hpp>
 
 
@@ -39,7 +40,7 @@ LidarMarkerDetector::LidarMarkerDetector()
   auto points_sub_opt = rclcpp::SubscriptionOptions();
   points_sub_opt.callback_group = points_callback_group;
   sub_points_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/sensing/lidar/top/rectified/pointcloud_ex", rclcpp::QoS(1).best_effort(),
+    "input/pointcloud_ex", rclcpp::QoS(1).best_effort(),
     std::bind(&LidarMarkerDetector::points_callback, this, _1), points_sub_opt);
 
   rclcpp::CallbackGroup::SharedPtr self_pose_callback_group;
@@ -157,6 +158,28 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
     points[point.ring].push_back(point);
   }
 
+
+
+  pcl::PointCloud<autoware_point_types::PointXYZIRADRT>::Ptr points_ptr(new pcl::PointCloud<autoware_point_types::PointXYZIRADRT>);
+  pcl::fromROSMsg(*points_msg_ptr, *points_ptr);
+
+  std::vector<pcl::PointCloud<autoware_point_types::PointXYZIRADRT>> ring_points;
+  ring_points.resize(128);
+  double min_x = 100.0;
+  double max_x = -100.0;
+  for (const auto & point : points_ptr->points) {
+    ring_points[point.ring].push_back(point);
+
+    if (min_x > point.x) {
+      min_x = point.x;
+    }
+
+    if (max_x < point.x) {
+      max_x = point.x;
+    }
+
+  }
+
   // initialize variables
   int vote[400];
   double feature_sum[400];
@@ -167,8 +190,18 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
     feature_sum[i] = 0;
   }
 
+
+  // Eigen::Vector4f min_p, max_p;
+  // Get the minimum and maximum dimensions
+  // pcl::getMinMax3D<autoware_point_types::PointXYZIRADRT> (*points_ptr, min_p, max_p);  // TODO need only x
+
+  // Check that the leaf size is not too small, given the size of the data
+  const double resolution = 0.05;
+  int64_t dx = static_cast<int64_t>((max_x - min_x) * (1/resolution)+1);
+  std::cerr << "dx " << dx << std::endl;
+
   // for target rings
-  for (size_t target_ring = 10; target_ring < 60; target_ring++) {
+  for (size_t target_ring = 5; target_ring < 45; target_ring++) {
 
     // initialize intensity line image
     double intensity_line_image[400];
@@ -182,7 +215,7 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
     for (size_t i = 0; i < points[target_ring].size(); i++) {
       PointXYZIR point;
       point = points[target_ring][i];
-      if (point.point.y > 0 && point.point.y < 4) {
+      if (point.point.y > 0 && point.point.y < 7.5) {
         int ix;
         ix = point.point.x / 0.05 + 200;
         if (ix >= 0 && ix < 400) {
@@ -223,7 +256,7 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
         for (int j = 4; j <= 5; j++) {
           if (median - 20 > intensity_line_image[i + j]) neg += 1;
         }
-        if (pos >= 5 && neg >= 4) {
+        if (pos >= 3 && neg >= 3) {
           vote[i]++;
           feature_sum[i] += (max - min);
         }
@@ -240,7 +273,7 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
       marker_pose_on_base_link.header.frame_id = "base_link";
       marker_pose_on_base_link.pose.position.x = (i - 200) * 0.05;
       marker_pose_on_base_link.pose.position.y = distance[i];
-      marker_pose_on_base_link.pose.position.z = 1.8; // TODO
+      marker_pose_on_base_link.pose.position.z = 0.2+1.75/2.0; // TODO
       marker_pose_on_base_link.pose.orientation = tier4_autoware_utils::createQuaternionFromRPY(M_PI_2,  0.0, 0.0); // TODO
       marker_pose_on_base_link_array.push_back(marker_pose_on_base_link);
     }
@@ -285,15 +318,10 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
 
 
   // --------------------------
-  is_detected_marker_ = !marker_pose_on_base_link_array.empty();
-  if(!is_detected_marker_) {
-    RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1, "Could not detect marker");
-    // return;      
-  }
 
   //-----
   // get marker pose array on map using lanelet2 map
-  std::vector<std::string> marker_name_array = {"tag_0", "tag_1", "tag_2"};
+  std::vector<std::string> marker_name_array = {"tag_0", "tag_1", "tag_2", "tag_3", "tag_4", "tag_5", "tag_6", "tag_7", "tag_8", "tag_9", "tag_10", "tag_11", "tag_12", "tag_13", "tag_14", "tag_15", "tag_16", "tag_17", "tag_18"};
   std::vector<geometry_msgs::msg::TransformStamped> transform_marker_on_map_array;
   std::vector<geometry_msgs::msg::PoseStamped> marker_pose_on_map_arrary;
   for (const auto & marker_name : marker_name_array)
@@ -341,12 +369,17 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
     }
   );
   std::cerr << "marker_pose_on_map_from_lanelet2_map " << marker_pose_on_map_from_lanelet2_map.pose.position.x << " " << marker_pose_on_map_from_lanelet2_map.pose.position.y << " " << marker_pose_on_map_from_lanelet2_map.pose.position.z << std::endl;
-  const double distance_from_self_pose_to_marker = tier4_autoware_utils::calcDistance3d(marker_pose_on_map_from_lanelet2_map.pose.position, self_pose_msg.pose.pose.position);
+  // const double distance_from_self_pose_to_marker = tier4_autoware_utils::calcDistance3d(marker_pose_on_map_from_lanelet2_map.pose.position, self_pose_msg.pose.pose.position);
 
-  const double limit_distance_from_self_pose_to_marker = 5.0;
-  is_exist_marker_within_self_pose_ = distance_from_self_pose_to_marker < limit_distance_from_self_pose_to_marker;
+  const auto marker_pose_on_base_link_from_lanele2_map = tier4_autoware_utils::inverseTransformPoint(marker_pose_on_map_from_lanelet2_map.pose.position, self_pose_msg.pose.pose);
+
+  std::cerr << "marker_pose_on_base_link_from_lanele2_map " << marker_pose_on_base_link_from_lanele2_map.x << " " << marker_pose_on_base_link_from_lanele2_map.y << " " << marker_pose_on_base_link_from_lanele2_map.z << std::endl;
+
+  const double limit_distance_from_self_pose_to_marker_from_lanelet2 = 5.0;
+  // is_exist_marker_within_self_pose_ = distance_from_self_pose_to_marker < limit_distance_from_self_pose_to_marker_from_lanelet2;
+  is_exist_marker_within_self_pose_ = std::fabs(marker_pose_on_base_link_from_lanele2_map.x) < limit_distance_from_self_pose_to_marker_from_lanelet2;
   if (!is_exist_marker_within_self_pose_) {
-    RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1, "The distance from self-pose to the nearest marker is too far(" << distance_from_self_pose_to_marker << "). The limit is " << limit_distance_from_self_pose_to_marker << ".");
+    RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1, "The distance from self-pose to the nearest marker of lanelet2 is too far(" << marker_pose_on_base_link_from_lanele2_map.x << "). The limit is " << limit_distance_from_self_pose_to_marker_from_lanelet2 << ".");
     // return;
   }
 
@@ -354,16 +387,23 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
   //-----
 
 
-  if(!is_detected_marker_ || !is_exist_marker_within_self_pose_) {
-    return;
-  }
+  // if(!is_detected_marker_ || !is_exist_marker_within_self_pose_) {
+  //   return;
+  // }
 
 
   //-----
+  is_detected_marker_ = !marker_pose_on_base_link_array.empty();
+  if(!is_detected_marker_) {
+    RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1, "Could not detect marker");
+    return;
+  }
+
   // get marker_pose on base_link
   geometry_msgs::msg::PoseStamped marker_pose_on_base_link;
   marker_pose_on_base_link = marker_pose_on_base_link_array.at(0);  // TODO
   std::cerr << "marker_pose_on_base_link " << marker_pose_on_base_link.pose.position.x << " " << marker_pose_on_base_link.pose.position.y << " " << marker_pose_on_base_link.pose.position.z << std::endl;
+
   pub_marker_pose_on_base_link_->publish(marker_pose_on_base_link);
 
   // get marker pose on map using self-pose
@@ -399,12 +439,26 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
   // base_link_on_map.pose = tf2::toMsg(map_to_base_link);
   // pub_base_link_on_map_->publish(base_link_on_map);
 
+  if(!is_detected_marker_ || !is_exist_marker_within_self_pose_) {
+    return;
+  }
 
   // 
   geometry_msgs::msg::Vector3 diff_position_from_self_position_to_lanelet2_map;
   diff_position_from_self_position_to_lanelet2_map.x = marker_pose_on_map_from_lanelet2_map.pose.position.x - marker_pose_on_map_from_self_pose.pose.position.x;
   diff_position_from_self_position_to_lanelet2_map.y = marker_pose_on_map_from_lanelet2_map.pose.position.y - marker_pose_on_map_from_self_pose.pose.position.y;
   std::cerr << "diff_position_from_self_position_to_lanelet2_map " << diff_position_from_self_position_to_lanelet2_map.x << " " << diff_position_from_self_position_to_lanelet2_map.y << std::endl;
+
+  const double limit_distance_from_self_pose_to_marker = 2.0;
+  double diff_position_from_self_position_to_lanelet2_map_norm = std::hypot(diff_position_from_self_position_to_lanelet2_map.x, diff_position_from_self_position_to_lanelet2_map.y);
+  bool is_exist_marker_within_lanelet2_map = diff_position_from_self_position_to_lanelet2_map_norm < limit_distance_from_self_pose_to_marker;
+
+
+  if (!is_exist_marker_within_lanelet2_map) {
+    RCLCPP_WARN_STREAM_THROTTLE(this->get_logger(), *this->get_clock(), 1, "The distance from lanelet2 to the detect marker is too far(" << diff_position_from_self_position_to_lanelet2_map_norm << "). The limit is " << limit_distance_from_self_pose_to_marker << ".");
+    return;
+  }
+
 
   geometry_msgs::msg::PoseStamped initial_base_link_on_map;
   initial_base_link_on_map.header.stamp = sensor_ros_time;
@@ -425,12 +479,14 @@ void LidarMarkerDetector::points_callback(const sensor_msgs::msg::PointCloud2::C
   base_link_pose_with_covariance_on_map.header.stamp = sensor_ros_time;
   base_link_pose_with_covariance_on_map.header.frame_id = "map";
   base_link_pose_with_covariance_on_map.pose.pose = result_base_link_on_map.pose;
-  base_link_pose_with_covariance_on_map.pose.covariance[0 * 6 + 0] = 0.1 * 0.1;  // TODO
-  base_link_pose_with_covariance_on_map.pose.covariance[1 * 6 + 1] = 0.1 * 0.1;  // TODO
-  base_link_pose_with_covariance_on_map.pose.covariance[2 * 6 + 2] = 0.05 * 0.05;  // TODO
-  base_link_pose_with_covariance_on_map.pose.covariance[3 * 6 + 3] = 0.01 * 0.01;  // TODO
-  base_link_pose_with_covariance_on_map.pose.covariance[4 * 6 + 4] = 0.01 * 0.01;  // TODO
-  base_link_pose_with_covariance_on_map.pose.covariance[5 * 6 + 5] = 0.05 * 0.05;  // TODO
+
+  // TODO transform covariance on base_link to map frame
+  base_link_pose_with_covariance_on_map.pose.covariance[0 * 6 + 0] = 0.2 * 0.2;  // TODO
+  base_link_pose_with_covariance_on_map.pose.covariance[1 * 6 + 1] = 0.2 * 0.2;  // TODO
+  base_link_pose_with_covariance_on_map.pose.covariance[2 * 6 + 2] = 0.1 * 0.1;  // TODO
+  base_link_pose_with_covariance_on_map.pose.covariance[3 * 6 + 3] = 0.0087 * 0.0087;  // TODO
+  base_link_pose_with_covariance_on_map.pose.covariance[4 * 6 + 4] = 0.0087 * 0.0087;  // TODO
+  base_link_pose_with_covariance_on_map.pose.covariance[5 * 6 + 5] = 0.0175 * 0.0175;  // TODO
   pub_base_link_pose_with_covariance_on_map_->publish(base_link_pose_with_covariance_on_map);
 
 }

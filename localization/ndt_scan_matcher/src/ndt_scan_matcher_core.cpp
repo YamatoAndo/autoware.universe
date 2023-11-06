@@ -288,6 +288,7 @@ void NDTScanMatcher::timer_diagnostic()
 void NDTScanMatcher::callback_initial_pose(
   const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr initial_pose_msg_ptr)
 {
+
   if (!is_activated_) return;
 
   // lock mutex for initial pose
@@ -532,14 +533,27 @@ void NDTScanMatcher::publish_pose(
   //   Eigen::Matrix3d rot = Eigen::AngleAxisd(output_pose_covariance_[3*6+3], Eigen::Vector3d::UnitX())
   //                       * Eigen::AngleAxisd(output_pose_covariance_[4*6+4], Eigen::Vector3d::UnitY())
   //                       * Eigen::AngleAxisd(output_pose_covariance_[5*6+5], Eigen::Vector3d::UnitZ()););
+
   Eigen::VectorXf eigen_covariance_on_base_link(3);
   eigen_covariance_on_base_link << output_pose_covariance_[0*6+0]
-                                 , output_pose_covariance_[1*6+1] 
-                                 , output_pose_covariance_[2*6+2] 
-                                 , output_pose_covariance_[3*6+3] 
-                                 , output_pose_covariance_[4*6+4] 
-                                 , output_pose_covariance_[5*6+5] 
+                                 , output_pose_covariance_[1*6+1]
+                                 , output_pose_covariance_[2*6+2]
+                                 , output_pose_covariance_[3*6+3]
+                                 , output_pose_covariance_[4*6+4]
+                                 , output_pose_covariance_[5*6+5]
                                  ;
+
+  // Eigen::MatrixXf eigen_covariance_on_base_link(3, 3);
+  // eigen_covariance_on_base_link(0, 0) = output_pose_covariance_[0*6+0];
+  // eigen_covariance_on_base_link(0, 1) = output_pose_covariance_[0*6+1];
+  // eigen_covariance_on_base_link(0, 2) = output_pose_covariance_[0*6+2];
+  // eigen_covariance_on_base_link(1, 0) = output_pose_covariance_[1*6+0];
+  // eigen_covariance_on_base_link(1, 1) = output_pose_covariance_[1*6+1];
+  // eigen_covariance_on_base_link(1, 2) = output_pose_covariance_[1*6+2];
+  // eigen_covariance_on_base_link(2, 0) = output_pose_covariance_[2*6+0];
+  // eigen_covariance_on_base_link(2, 1) = output_pose_covariance_[2*6+1];
+  // eigen_covariance_on_base_link(2, 2) = output_pose_covariance_[2*6+2];
+
   // Eigen::Affine3d eigen_pose_on_map = Eigen::Affine3d(
   //   Eigen::Translation3d(0.0, 0.0, 0.0) *
   //   Eigen::Quaterniond(
@@ -553,12 +567,28 @@ void NDTScanMatcher::publish_pose(
   Eigen::VectorXf eigen_covariance_on_map(3);
   eigen_covariance_on_map = quat * eigen_covariance_on_base_link;
 
+  // Eigen::MatrixXf eigen_covariance_on_map(3, 3);
+  // eigen_covariance_on_map = eigen_covariance_on_base_link * quat.inverse();
+
   result_pose_with_cov_msg.pose.covariance[0*6+0] = std::abs(eigen_covariance_on_map(0));
   result_pose_with_cov_msg.pose.covariance[1*6+1] = std::abs(eigen_covariance_on_map(1));
   result_pose_with_cov_msg.pose.covariance[2*6+2] = std::abs(eigen_covariance_on_map(2));
   result_pose_with_cov_msg.pose.covariance[3*6+3] = output_pose_covariance_[3*6+3];
   result_pose_with_cov_msg.pose.covariance[4*6+4] = output_pose_covariance_[4*6+4];
   result_pose_with_cov_msg.pose.covariance[5*6+5] = output_pose_covariance_[5*6+5];
+
+  // result_pose_with_cov_msg.pose.covariance[0*6+0] = std::abs(eigen_covariance_on_map(0, 0));
+  // result_pose_with_cov_msg.pose.covariance[0*6+1] = std::abs(eigen_covariance_on_map(0, 1));
+  // result_pose_with_cov_msg.pose.covariance[0*6+2] = std::abs(eigen_covariance_on_map(0, 2));
+  // result_pose_with_cov_msg.pose.covariance[1*6+0] = std::abs(eigen_covariance_on_map(1, 0));
+  // result_pose_with_cov_msg.pose.covariance[1*6+1] = std::abs(eigen_covariance_on_map(1, 1));
+  // result_pose_with_cov_msg.pose.covariance[1*6+2] = std::abs(eigen_covariance_on_map(1, 2));
+  // result_pose_with_cov_msg.pose.covariance[2*6+0] = std::abs(eigen_covariance_on_map(2, 0));
+  // result_pose_with_cov_msg.pose.covariance[2*6+1] = std::abs(eigen_covariance_on_map(2, 1));
+  // result_pose_with_cov_msg.pose.covariance[2*6+2] = std::abs(eigen_covariance_on_map(2, 2));
+  // result_pose_with_cov_msg.pose.covariance[3*6+3] = output_pose_covariance_[3*6+3];
+  // result_pose_with_cov_msg.pose.covariance[4*6+4] = output_pose_covariance_[4*6+4];
+  // result_pose_with_cov_msg.pose.covariance[5*6+5] = output_pose_covariance_[5*6+5];
 
 
   if (is_converged) {
