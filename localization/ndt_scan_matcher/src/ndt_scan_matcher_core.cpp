@@ -158,7 +158,7 @@ NDTScanMatcher::NDTScanMatcher()
     search_method = this->declare_parameter("omp_neighborhood_search_method", search_method);
     omp_params_.search_method = static_cast<pclomp::NeighborSearchMethod>(search_method);
     // TODO(Tier IV): check search_method is valid value.
-    ndt_omp_ptr->setNeighborhoodSearchMethod(omp_params_.search_method);
+    // ndt_omp_ptr->setNeighborhoodSearchMethod(omp_params_.search_method);
 
     omp_params_.num_threads = this->declare_parameter("omp_num_threads", omp_params_.num_threads);
     omp_params_.num_threads = std::max(omp_params_.num_threads, 1);
@@ -425,7 +425,7 @@ void NDTScanMatcher::callbackMapPoints(
 
     // FIXME(IshitaTakeshi) Not sure if this is safe
     std::shared_ptr<T> ndt_omp_ptr = std::dynamic_pointer_cast<T>(ndt_ptr_);
-    ndt_omp_ptr->setNeighborhoodSearchMethod(omp_params_.search_method);
+    // ndt_omp_ptr->setNeighborhoodSearchMethod(omp_params_.search_method);
     ndt_omp_ptr->setNumThreads(omp_params_.num_threads);
     new_ndt_ptr_ = ndt_omp_ptr;
   }

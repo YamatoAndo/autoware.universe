@@ -20,7 +20,7 @@
 #include <pcl/common/io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-#include <pclomp/ndt_omp.h>
+#include <multigrid_pclomp/multigrid_ndt_omp.h>
 
 #include <vector>
 
@@ -66,13 +66,13 @@ public:
 
   // only OMP Impl
   void setNumThreads(int n);
-  void setNeighborhoodSearchMethod(pclomp::NeighborSearchMethod method);
+  // void setNeighborhoodSearchMethod(pclomp::NeighborSearchMethod method);
 
   int getNumThreads() const;
-  pclomp::NeighborSearchMethod getNeighborhoodSearchMethod() const;
+  // pclomp::NeighborSearchMethod getNeighborhoodSearchMethod() const;
 
 private:
-  pcl::shared_ptr<pclomp::NormalDistributionsTransform<PointSource, PointTarget>> ndt_ptr_;
+  pcl::shared_ptr<pclomp::MultiGridNormalDistributionsTransform<PointSource, PointTarget>> ndt_ptr_;
 };
 
 #include "ndt/impl/omp.hpp"
